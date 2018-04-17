@@ -6,14 +6,10 @@
   shopifyConnectionService.$inject = ['$http', '$location', '$window'];
 
   function shopifyConnectionService($http, $location, $window) {
-    const server = _.replace('http://localhost:3000', /\/$/, '');
+    const server = 'https://koapp-oauth.herokuapp.com';
+    // const server = 'http://localhost:3000';
 
     return function({ shop }) {
-      function error(e) {
-        console.error(e);
-        return e;
-      }
-
       const auth = () =>
         localStorage.__SHOPIFY__ ?
           Promise.resolve(localStorage.__SHOPIFY__) :
@@ -35,10 +31,11 @@
           return response.data;
         }
         catch(e) {
-          error(e);
+          console.error(e);
         }
       }
 
+        /*
       const collect = {
         create : body => ajax('POST',   '/admin/collects.json', body),
         delete : id   => ajax('DELETE', `/admin/collects/${id}.json`),
@@ -65,6 +62,7 @@
         delete : id         => ajax('POST', `/admin/gift_cards/${id}/disable.json`),
         search : name       => ajax('GET',  `/admin/gift_cards/search.json?query=${name}`)
       };
+      */
 
       const product = {
         all    : ()         => ajax('GET',   '/admin/products.json'),
@@ -75,6 +73,15 @@
         delete : id         => ajax('DELETE' `/admin/products/${id}.json`)
       };
 
+      const productListing = {
+        all    : ()         => ajax('GET',   '/admin/product_listings.json'),
+        count  : ()         => ajax('GET',   '/admin/product_listings/count.json'),
+        id     : id         => ajax('GET',   `/admin/product_listings/${id}.json`),
+        create : body       => ajax('PUT',   `/admin/product_listings/${id}.json`, body),
+        delete : id         => ajax('DELETE' `/admin/product_listings/${id}.json`)
+      };
+
+      /*
       const productImage = {
         all    : id         => ajax('GET',    `/admin/products/${id}/images.json`),
         count  : id         => ajax('GET',    `/admin/products/${id}/images/count.json`),
@@ -102,16 +109,101 @@
         // ?   : (id, body) => ajax('PUT',    `/admin/smart_collections/#{id}/order.json?products[]=921728736&products[]=632910392`, body),
         delete : id         => ajax('DELETE', `/admin/smart_collections/${id}.json`)
       };
+      */
 
       const checkout = {
-        all    : ()         => ajax('GET',    '/admin/checkouts.json'),
-        count  : ()         => ajax('GET',    '/admin/checkouts/count.json'),
-        id     : id         => ajax('GET',    `/admin/checkouts/${id}.json`),
-        create : body       => ajax('POST',   '/admin/checkouts.json', body),
-        modify : (id, body) => ajax('PUT',    `/admin/checkouts/${id}.json`, body)
+        all    : ()         => ajax('GET',  '/admin/checkouts.json'),
+        count  : ()         => ajax('GET',  '/admin/checkouts/count.json'),
+        id     : id         => ajax('GET',  `/admin/checkouts/${id}.json`),
+        create : body       => ajax('POST', '/admin/checkouts.json', body),
+        modify : (id, body) => ajax('PUT',  `/admin/checkouts/${id}.json`, body)
       };
 
-      return { collect, customCollection, giftCard, product, productImage, productVariant, smartCollection, checkout };
+      /*
+      const order = {
+        all    : ()         => ajax('GET',  '/admin/orders.json'),
+        count  : ()         => ajax('GET',  '/admin/orders/count.json'),
+        id     : id         => ajax('GET',  `/admin/orders/${id}.json`),
+        create : body       => ajax('POST', '/admin/orders.json', body),
+        modify : (id, body) => ajax('PUT',  `/admin/orders/${id}.json`, body)
+      };
+      */
+
+      const cart = {
+        all    : ()         => JSON.parse(localStorage.__CART__ || '{}'),
+        count  : ()         => _.keys(JSON.parse(localStorage.__CART__ || '{}')).length,
+        id     : id         => JSON.parse(localStorage.__CART__ || '{}')[id],
+        clear  : ()         => { localStorage.removeItem('__CART__') },
+        delete : id         => {
+          const cache  = JSON.parse(localStorage.__CART__ || '{}');
+          const result = _.omit(cache, id);
+
+          localStorage.__CART__ = JSON.stringify(result);
+        },
+        add    : (id, body) => {
+          const cache  = JSON.parse(localStorage.__CART__ || '{}');
+          const object = eval(`({ ${id} : body })`);
+          const result = _.assign(cache, object);
+
+          localStorage.__CART__ = JSON.stringify(result); 
+        }
+      };
+
+      const favorite = {
+        all    : ()         => JSON.parse(localStorage.__FAVORITE__ || '[]'),
+        count  : ()         => JSON.parse(localStorage.__FAVORITE__ || '[]').length,
+        id     : id         => _.indexOf(JSON.parse(localStorage.__FAVORITE__ || '[]'), id) !== -1,
+        clear  : ()         => { localStorage.removeItem('__FAVORITE__') },
+        delete : id         => {
+          const cache  = JSON.parse(localStorage.__FAVORITE__ || '[]');
+          const result = _.filter(cache, key => id !== key);
+
+          localStorage.__FAVORITE__ = JSON.stringify(result);
+        },
+        add    : id         => {
+          const cache  = JSON.parse(localStorage.__FAVORITE__ || '[]');
+
+          if (id && _.indexOf(cache, id) === -1) {
+            const result = _.concat(cache, id);
+
+            localStorage.__FAVORITE__ = JSON.stringify(result);
+          }
+        }
+      };
+
+      const customer = {
+        all    : ()         => ajax('GET',  '/admin/customers.json'),
+        count  : ()         => ajax('GET',  '/admin/customers/count.json'),
+        id     : id         => ajax('GET',  `/admin/customers/${id}.json`),
+        create : body       => ajax('POST', '/admin/customers.json', body),
+        modify : (id, body) => ajax('PUT',  `/admin/customers/${id}.json`, body)
+      };
+
+      const blog = {
+        all    : ()         => ajax('GET',  '/admin/blogs.json'),
+        count  : ()         => ajax('GET',  '/admin/blogs/count.json'),
+        id     : id         => ajax('GET',  `/admin/blogs/${id}.json`),
+        create : body       => ajax('POST', '/admin/blogs.json', body),
+        modify : (id, body) => ajax('PUT',  `/admin/blogs/${id}.json`, body)
+      };
+
+      const article = {
+        all    : blog             => ajax('GET',  `/admin/blogs/${blog}/articles.json`),
+        count  : blog             => ajax('GET',  `/admin/blogs/${blog}/articles/count.json`),
+        id     : (blog, id)       => ajax('GET',  `/admin/blogs/${blog}/articles/${id}.json`),
+        create : (blog, body)     => ajax('POST', `/admin/blogs/${blog}/articles.json`, body),
+        modify : (id, blog, body) => ajax('PUT',  `/admin/blogs/${blog}/articles/${id}.json`, body)
+      };
+
+      const page = {
+        all    : ()         => ajax('GET',  '/admin/pages.json'),
+        count  : ()         => ajax('GET',  '/admin/pages/count.json'),
+        id     : id         => ajax('GET',  `/admin/pages/${id}.json`),
+        create : body       => ajax('POST', '/admin/pages.json', body),
+        modify : (id, body) => ajax('PUT',  `/admin/pages/${id}.json`, body)
+      };
+
+      return { product, productListing, checkout, blog, article, page, cart, favorite, customer };
     }
   }
 }());
