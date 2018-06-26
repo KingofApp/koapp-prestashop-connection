@@ -1,135 +1,92 @@
 (function() {
   angular
-    .module('shopify', [])
-    .service('sfConnectionService', shopifyConnectionService);
+    .module('prestashop', [])
+    .service('prestashopService', prestashop);
 
-  shopifyConnectionService.$inject = ['$http', '$location', '$window'];
+  prestashop.$inject = ['$http', '$location', '$window'];
 
-  function shopifyConnectionService($http, $location, $window) {
-    const server = 'https://koapp-oauth.herokuapp.com';
-    // const server = 'http://localhost:3000';
+  function prestashop($http, $location, $window) {
+    const attrs = ["addresses", "carriers", "cart_rules", "carts", "categories",
+      "combinations", "configurations", "contacts", "content_management_system",
+      "countries", "currencies", "customer_messages", "customer_threads",
+      "customers", "customizations", "deliveries", "employees", "groups",
+      "guests", "image_types", "languages", "manufacturers", "messages",
+      "order_carriers", "order_details", "order_histories", "order_invoices",
+      "order_payments", "order_slip", "order_states", "orders", "price_ranges",
+      "product_customization_fields", "product_feature_values", "product_features",
+      "product_option_values", "product_options", "product_suppliers", "products",
+      "shop_groups", "shop_urls", "shops", "specific_price_rules", "specific_prices",
+      "states", "stock_availables", "stock_movement_reasons", "stock_movements",
+      "stocks", "stores", "suppliers", "supply_order_details",
+      "supply_order_histories", "supply_order_receipt_histories",
+      "supply_order_states", "supply_orders", "tags", "tax_rule_groups",
+      "tax_rules", "taxes", "translated_configurations", "warehouse_product_locations",
+      "warehouses", "weight_ranges", "zones"];
+    let   api = {};
 
-    return function({ shop }) {
-      const auth = () =>
-        localStorage.__SHOPIFY__ ?
-          Promise.resolve(localStorage.__SHOPIFY__) :
-          new Promise(resolve => {
-            window.onmessage = event => {
-              const data = event.data;
-              localStorage.__SHOPIFY__ = event.data.access_token;
-              resolve(localStorage.__SHOPIFY__);
-            };
-            $window.open(`${server}/shopify/shop/${shop}`, '_blank');
-          }) 
+    return function({ url, key }) {
+      const base = 'http://' + _.replace(url, /(^https?:\/\/|\/$)/g, '');
 
-      async function ajax(method, path, json) {
+      async function ajax(method, path, data) {
         try {
-          const access_token = await auth();
-          const url          = `${server}/shopify`;
-          const data         = { shop, access_token, json, method, path };
-          const response     = await $http.post(url, data);
+          const url      = base + path;
+          const headers  = data ? { 'Content-Type' : 'text/xml;charset=UTF-8' } : {};
+          const response = await $http({ method, url, data, headers });
           return response.data;
         }
         catch(e) {
           console.error(e);
+          throw e;
         }
       }
 
-        /*
-      const collect = {
-        create : body => ajax('POST',   '/admin/collects.json', body),
-        delete : id   => ajax('DELETE', `/admin/collects/${id}.json`),
-        all    : id   => ajax('GET',    `/admin/collects.json?product_id=${id}`),
-        count  : id   => ajax('GET',    `/admin/collects/count.json?product_id=${id}`),
-        id     : id   => ajax('GET',    `/admin/collects/${id}.json`)
-      };
+      const search  = (query, filter) =>
+        filter ? `filter[${filter}]=${query}` : `filter[name]=%[${query}]%`;
 
-      const customCollection = {
-        all    : id         => ajax('GET',    `/admin/custom_collections.json?since_id=${id}`),
-        count  : id         => ajax('GET',    `/admin/custom_collections/count.json?product_id=${id}`),
-        id     : id         => ajax('GET',    `/admin/custom_collections/${id}.json`),
-        create : body       => ajax('POST',   '/admin/custom_collections.json', body),
-        modify : (id, body) => ajax('PUT',    `/admin/custom_collections/${id}.json`, body),
-        delete : id         => ajax('DELETE', `/admin/custom_collections/${id}.json`)
-      };
+      const display = query =>
+        query ? `display=[${query}]` : 'display=full';
 
-      const giftCard = {
-        all    : ()         => ajax('GET',  '/admin/gift_cards.json?status=enabled'),
-        id     : id         => ajax('GET',  `/admin/gift_cards/${id}.json`),
-        count  : ()         => ajax('GET',  `/admin/gift_cards/count.json?status=enabled`),
-        create : body       => ajax('POST', '/admin/gift_cards.json', body),
-        modify : (id, body) => ajax('PUT',  `/admin/gift_cards/${id}.json`, body),
-        delete : id         => ajax('POST', `/admin/gift_cards/${id}/disable.json`),
-        search : name       => ajax('GET',  `/admin/gift_cards/search.json?query=${name}`)
-      };
-      */
+      _.each(attrs, v => {
+        api[ _.camelCase(v) ] = {
+          add    : body       => ajax('POST',   `/api/${v}?output_format=JSON&ws_key=${key}`, body),
+          modify : body       => ajax('PUT',    `/api/${v}?output_format=JSON&ws_key=${key}`, body),
+          all    : ()         => ajax('GET',    `/api/${v}?display=full&output_format=JSON&ws_key=${key}`),
+          search : (q, f, d)  => ajax('GET',    `/api/${v}?${display(d)}&output_format=JSON&ws_key=${key}&${search(q, f)}`),
+          id     : id         => ajax('GET',    `/api/${v}/${id}?output_format=JSON&ws_key=${key}&price[total][use_tax]=1&price[total_tax_excl][use_tax]=0`),
+          delete : id         => ajax('DELETE', `/api/${v}/${id}?output_format=JSON&ws_key=${key}`),
+          format : ()         => ajax('GET',    `/api/${v}/${id}?output_format=JSON&ws_key=${key}&schema=blank`)
+        };
+      });
 
-      const product = {
-        all    : ()         => ajax('GET',   '/admin/products.json'),
-        count  : ()         => ajax('GET',   '/admin/products/count.json'),
-        id     : id         => ajax('GET',   `/admin/products/${id}.json`),
-        create : body       => ajax('POST',  '/admin/products.json', body),
-        modify : (id, body) => ajax('PUT',   `/admin/products/${id}.json`, body),
-        delete : id         => ajax('DELETE' `/admin/products/${id}.json`)
-      };
+      api.locale = async (count = 0) => {
+        try {
+          const url      = 'http://www.geoplugin.net/json.gp';
+          const method   = 'GET';
+          const response = await $http({ method, url });
+          const iteratee = _.keys(response.data);
+          let   object   = {};
 
-      const productListing = {
-        all    : ()         => ajax('GET',   '/admin/product_listings.json'),
-        count  : ()         => ajax('GET',   '/admin/product_listings/count.json'),
-        id     : id         => ajax('GET',   `/admin/product_listings/${id}.json`),
-        create : body       => ajax('PUT',   `/admin/product_listings/${id}.json`, body),
-        delete : id         => ajax('DELETE' `/admin/product_listings/${id}.json`)
-      };
+          for (let i in iteratee) {
+            const key = _.replace(iteratee[i], 'geoplugin_', '');
+
+            object[key] = response.data[ iteratee[i] ];
+          }
+
+          return object;
+        }
+        catch(e) {
+          // if it fail, try again
+          return count === 5 ?
+            e :
+            api.locale(++count);
+        }
+      }
 
       /*
-      const productImage = {
-        all    : id         => ajax('GET',    `/admin/products/${id}/images.json`),
-        count  : id         => ajax('GET',    `/admin/products/${id}/images/count.json`),
-        id     : id         => ajax('GET',    `/admin/products/#{id}/images/${id}.json`),
-        create : (id, body) => ajax('POST',   `/admin/products/${id}/images.json`, body),
-        modify : (id, body) => ajax('PUT',    `/admin/products/${id}/images/${id}.json`, body),
-        delete : id         => ajax('DELETE', `/admin/products/${id}/images/${id}.json`)
-      };
+      api.search = (language, query) =>
+        ajax('GET', `/api/search?language=${language}&query=${query}&output_format=JSON&ws_key=${key}`)
 
-      const productVariant = {
-        all    : id         => ajax('GET',    `/admin/products/${id}/variants.json?since_id=${id}`),
-        count  : id         => ajax('GET',    `/admin/products/${id}/variants/count.json`),
-        id     : id         => ajax('GET',    `/admin/variants/${id}.json`),
-        create : (id, body) => ajax('POST',   `/admin/products/${id}/variants.json`, body),
-        modify : (id, body) => ajax('PUT',    `/admin/variants/${id}.json`, body),
-        delete : id         => ajax('DELETE', `/admin/products/${id}/variants/${id}.json`)
-      };
-
-      const smartCollection = {
-        all    : ()         => ajax('GET',    '/admin/smart_collections.json'),
-        count  : ()         => ajax('GET',    '/admin/smart_collections/count.json'),
-        id     : id         => ajax('GET',    `/admin/smart_collections/${id}.json`),
-        create : body       => ajax('POST',   '/admin/smart_collections.json', body),
-        modify : (id, body) => ajax('PUT',    `/admin/smart_collections/${id}.json`, body),
-        // ?   : (id, body) => ajax('PUT',    `/admin/smart_collections/#{id}/order.json?products[]=921728736&products[]=632910392`, body),
-        delete : id         => ajax('DELETE', `/admin/smart_collections/${id}.json`)
-      };
-      */
-
-      const checkout = {
-        all    : ()         => ajax('GET',  '/admin/checkouts.json'),
-        count  : ()         => ajax('GET',  '/admin/checkouts/count.json'),
-        id     : id         => ajax('GET',  `/admin/checkouts/${id}.json`),
-        create : body       => ajax('POST', '/admin/checkouts.json', body),
-        modify : (id, body) => ajax('PUT',  `/admin/checkouts/${id}.json`, body)
-      };
-
-      /*
-      const order = {
-        all    : ()         => ajax('GET',  '/admin/orders.json'),
-        count  : ()         => ajax('GET',  '/admin/orders/count.json'),
-        id     : id         => ajax('GET',  `/admin/orders/${id}.json`),
-        create : body       => ajax('POST', '/admin/orders.json', body),
-        modify : (id, body) => ajax('PUT',  `/admin/orders/${id}.json`, body)
-      };
-      */
-
-      const cart = {
+      api.cart = {
         all    : ()         => JSON.parse(localStorage.__CART__ || '{}'),
         count  : ()         => _.keys(JSON.parse(localStorage.__CART__ || '{}')).length,
         id     : id         => JSON.parse(localStorage.__CART__ || '{}')[id],
@@ -145,22 +102,23 @@
           const object = eval(`({ ${id} : body })`);
           const result = _.assign(cache, object);
 
-          localStorage.__CART__ = JSON.stringify(result); 
+          localStorage.__CART__ = JSON.stringify(result);
         }
       };
+      */
 
-      const favorite = {
-        all    : ()         => JSON.parse(localStorage.__FAVORITE__ || '[]'),
-        count  : ()         => JSON.parse(localStorage.__FAVORITE__ || '[]').length,
-        id     : id         => _.indexOf(JSON.parse(localStorage.__FAVORITE__ || '[]'), id) !== -1,
-        clear  : ()         => { localStorage.removeItem('__FAVORITE__') },
-        delete : id         => {
+      api.favorite = {
+        all    : () => JSON.parse(localStorage.__FAVORITE__ || '[]'),
+        count  : () => JSON.parse(localStorage.__FAVORITE__ || '[]').length,
+        id     : id => _.indexOf(JSON.parse(localStorage.__FAVORITE__ || '[]'), id) !== -1,
+        clear  : () => { localStorage.removeItem('__FAVORITE__') },
+        delete : id => {
           const cache  = JSON.parse(localStorage.__FAVORITE__ || '[]');
           const result = _.filter(cache, key => id !== key);
 
           localStorage.__FAVORITE__ = JSON.stringify(result);
         },
-        add    : id         => {
+        add    : id => {
           const cache  = JSON.parse(localStorage.__FAVORITE__ || '[]');
 
           if (id && _.indexOf(cache, id) === -1) {
@@ -171,39 +129,49 @@
         }
       };
 
-      const customer = {
-        all    : ()         => ajax('GET',  '/admin/customers.json'),
-        count  : ()         => ajax('GET',  '/admin/customers/count.json'),
-        id     : id         => ajax('GET',  `/admin/customers/${id}.json`),
-        create : body       => ajax('POST', '/admin/customers.json', body),
-        modify : (id, body) => ajax('PUT',  `/admin/customers/${id}.json`, body)
-      };
+      api.toXML = (fields, index = 0, root) => {
+        const keys  = _.keys(fields);
+        let   xml   = '';
+        let   tabs  = '';
 
-      const blog = {
-        all    : ()         => ajax('GET',  '/admin/blogs.json'),
-        count  : ()         => ajax('GET',  '/admin/blogs/count.json'),
-        id     : id         => ajax('GET',  `/admin/blogs/${id}.json`),
-        create : body       => ajax('POST', '/admin/blogs.json', body),
-        modify : (id, body) => ajax('PUT',  `/admin/blogs/${id}.json`, body)
-      };
+        for (let i = 0; i <= index; i++)
+          tabs += '\t';
 
-      const article = {
-        all    : blog             => ajax('GET',  `/admin/blogs/${blog}/articles.json`),
-        count  : blog             => ajax('GET',  `/admin/blogs/${blog}/articles/count.json`),
-        id     : (blog, id)       => ajax('GET',  `/admin/blogs/${blog}/articles/${id}.json`),
-        create : (blog, body)     => ajax('POST', `/admin/blogs/${blog}/articles.json`, body),
-        modify : (id, blog, body) => ajax('PUT',  `/admin/blogs/${blog}/articles/${id}.json`, body)
-      };
+        if (!index) {
+          xml += '<?xml version="1.0" encoding="UTF-8"?>\n';
+          xml += '<prestashop xmlns:xlink="http://www.w3.org/1999/xlink">\n';
+        }
 
-      const page = {
-        all    : ()         => ajax('GET',  '/admin/pages.json'),
-        count  : ()         => ajax('GET',  '/admin/pages/count.json'),
-        id     : id         => ajax('GET',  `/admin/pages/${id}.json`),
-        create : body       => ajax('POST', '/admin/pages.json', body),
-        modify : (id, body) => ajax('PUT',  `/admin/pages/${id}.json`, body)
-      };
+        _.each(keys, v => {
+          xml += `${tabs}<${root || v}>`;
 
-      return { product, productListing, checkout, blog, article, page, cart, favorite, customer };
+          // text
+          if (typeof fields[v] !== 'object')
+            xml += fields[v];
+          // array
+          else if (fields[v] instanceof Array) {
+            const key = _.replace(v, /s$/, '');
+            xml += '\n' + api.toXML(fields[v], index + 1, key);
+          }
+          // object
+          else
+            xml += '\n' + api.toXML(fields[v], index + 1);
+
+          // text
+          if (typeof fields[v] !== 'object')
+            xml += `</${v}>\n`;
+          // any object
+          else
+            xml += `${tabs}</${root || v}>\n`;
+        })
+
+        if (!index)
+          xml += '</prestashop>';
+
+        return xml;
+      }
+
+      return api;
     }
   }
 }());
