@@ -6,7 +6,7 @@
   prestashop.$inject = ['$http', '$location', '$window', '$q'];
 
   function prestashop($http, $location, $window, $q) {
-    const attrs = ['addresses', 'carriers', 'cart_rules', 'carts', 'categories',
+    var attrs = ['addresses', 'carriers', 'cart_rules', 'carts', 'categories',
       'combinations', 'configurations', 'contacts', 'content_management_system',
       'countries', 'currencies', 'customer_messages', 'customer_threads',
       'customers', 'customizations', 'deliveries', 'employees', 'groups',
@@ -22,17 +22,17 @@
       'supply_order_states', 'supply_orders', 'tags', 'tax_rule_groups',
       'tax_rules', 'taxes', 'translated_configurations', 'warehouse_product_locations',
       'warehouses', 'weight_ranges', 'zones'];
-    var   api = {};
+    var api = {};
 
     return function(obj) {
-      const url  = obj.url;
-      const key  = obj.key;
-      const base = 'http://' + _.replace(url, /(^https?:\/\/|\/$)/g, '');
+      var url  = obj.url;
+      var key  = obj.key;
+      var base = 'http://' + _.replace(url, /(^https?:\/\/|\/$)/g, '');
 
       function ajax(method, path, data) {
         return $q(function(resolve, reject) {
-          const url     = base + path;
-          const headers = data ? { 'Content-Type' : 'text/xml;charset=UTF-8' } : {};
+          var url     = base + path;
+          var headers = data ? { 'Content-Type' : 'text/xml;charset=UTF-8' } : {};
           return $http({
             method  : method,
             url     : url,
@@ -73,17 +73,17 @@
       api.locale = function(count) {
         count = count || 0;
 
-        const url      = 'http://www.geoplugin.net/json.gp';
-        const method   = 'GET';
+        var url      = 'http://www.geoplugin.net/json.gp';
+        var method   = 'GET';
         return $http({
           method : method,
           url    : url
         }).then(function(response) {
-          const iteratee = _.keys(response.data);
-          const object   = {};
+          var iteratee = _.keys(response.data);
+          var object   = {};
 
           for (var i in iteratee) {
-            const key = _.replace(iteratee[i], 'geoplugin_', '');
+            var key = _.replace(iteratee[i], 'geoplugin_', '');
 
             object[key] = response.data[ iteratee[i] ];
           }
@@ -103,16 +103,16 @@
         id     : function(id) { return _.indexOf(JSON.parse(localStorage.__FAVORITE__ || '[]'), id) !== -1; },
         clear  : function()   { localStorage.removeItem('__FAVORITE__') },
         delete : function(id) {
-          const cache  = JSON.parse(localStorage.__FAVORITE__ || '[]');
-          const result = _.filter(cache, function(key) { return id !== key; });
+          var cache  = JSON.parse(localStorage.__FAVORITE__ || '[]');
+          var result = _.filter(cache, function(key) { return id !== key; });
 
           localStorage.__FAVORITE__ = JSON.stringify(result);
         },
         add    : function(id) {
-          const cache  = JSON.parse(localStorage.__FAVORITE__ || '[]');
+          var cache  = JSON.parse(localStorage.__FAVORITE__ || '[]');
 
           if (id && _.indexOf(cache, id) === -1) {
-            const result = _.concat(cache, id);
+            var result = _.concat(cache, id);
 
             localStorage.__FAVORITE__ = JSON.stringify(result);
           }
@@ -120,9 +120,9 @@
       };
 
       api.toXML = function(fields, index = 0, root) {
-        const keys  = _.keys(fields);
-        var   xml   = '';
-        var   tabs  = '';
+        var keys  = _.keys(fields);
+        var xml   = '';
+        var tabs  = '';
 
         index = index || 0;
 
@@ -142,7 +142,7 @@
             xml += fields[v];
           // array
           else if (fields[v] instanceof Array) {
-            const key = _.replace(v, /s$/, '');
+            var key = _.replace(v, /s$/, '');
             xml += '\n' + api.toXML(fields[v], index + 1, key);
           }
           // object
